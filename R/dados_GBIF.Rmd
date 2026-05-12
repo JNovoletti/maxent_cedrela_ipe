@@ -1,0 +1,137 @@
+---
+title: "obter_dados_GBIF"
+author: "MGA"
+date: "2026-05-12"
+output: html_document
+---
+
+```{r libraries}
+options(repos = c(CRAN = "https://cloud.r-project.org"))
+
+list.of.packages <- c("tidyverse","readxl","terra","sf","ggplot2",
+                       "ggspatial","png","grid","ggnewscale",
+                       "RColorBrewer","scales", "spatstat.geom", "spatstat.explore", "writexl")
+new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+if(length(new.packages)) install.packages(new.packages)
+
+library(tidyverse); library(readxl); library(terra); library(sf)
+library(ggplot2); library(ggspatial); library(png); library(grid)
+library(ggnewscale); library(RColorBrewer); library(scales)
+library(writexl)
+```
+
+# STEP 8: MASCARA DE OCORRENCIA DE CEDRELA (GBIF)
+
+# O orientador recomenda usar dados de ocorrencia do GBIF para criar uma
+
+# mascara de distribuicao da Cedrela. Isso e aplicado APOS o isoscape
+
+# para excluir regioes onde Cedrela nao ocorre — melhorando a precisao
+
+# da atribuicao geografica e excluindo origens ecologicamente impossiveis.
+
+```{r gbif_install, eval=FALSE}
+# Instalar rgbif se necessario — rodar apenas uma vez
+#install.packages("rgbif")
+```
+
+```{r gbif_download_cedrela}
+# Baixar apenas Brasil via API GBIF
+library(httr)
+library(jsonlite)
+
+cedrela_br <- data.frame()
+offset <- 0
+limite <- 300
+
+repeat {
+  url <- paste0(
+    "https://api.gbif.org/v1/occurrence/search?",
+    "taxonKey=3190510",
+    "&hasCoordinate=true",
+    "&hasGeospatialIssue=false",
+    "&country=BR",
+    "&limit=", limite,
+    "&offset=", offset
+  )
+  
+  resposta <- GET(url)
+  dados    <- fromJSON(content(resposta, as="text", encoding="UTF-8"))
+  
+  if(length(dados$results) == 0) break
+  
+  batch <- dados$results %>%
+    dplyr::select(decimalLongitude, decimalLatitude) %>%
+    drop_na() %>%
+    rename(lon=decimalLongitude, lat=decimalLatitude)
+  
+  cedrela_br <- rbind(cedrela_br, batch)
+  offset     <- offset + limite
+  
+  cat(sprintf("offset %d — acumulados: %d de %d\n",
+              offset, nrow(cedrela_br), dados$count))
+  
+  if(offset >= min(dados$count, 10000)) break
+  Sys.sleep(0.5)
+}
+
+write_xlsx(cedrela_br, "cedrela_br.xlsx")
+
+cat("\nTotal Brasil:", nrow(cedrela_br), "ocorrencias\n")
+
+# Visualizar distribuicao geografica
+plot(cedrela_br$lon, cedrela_br$lat,
+     pch=16, cex=0.3, col="darkgreen",
+     main="Ocorrencias de Cedrela no Brasil (GBIF)",
+     xlab="Longitude", ylab="Latitude")
+```
+```{r gbif_download_handroanthus}
+# Baixar apenas Brasil via API GBIF
+library(httr)
+library(jsonlite)
+
+handroanthus_br <- data.frame()
+offset <- 0
+limite <- 300
+
+repeat {
+  url <- paste0(
+    "https://api.gbif.org/v1/occurrence/search?",
+    "taxonKey=6401269",
+    "&hasCoordinate=true",
+    "&hasGeospatialIssue=false",
+    "&country=BR",
+    "&limit=", limite,
+    "&offset=", offset
+  )
+  
+  resposta <- GET(url)
+  dados    <- fromJSON(content(resposta, as="text", encoding="UTF-8"))
+  
+  if(length(dados$results) == 0) break
+  
+  batch <- dados$results %>%
+    dplyr::select(decimalLongitude, decimalLatitude) %>%
+    drop_na() %>%
+    rename(lon=decimalLongitude, lat=decimalLatitude)
+  
+  handroanthus_br <- rbind(handroanthus_br, batch)
+  offset     <- offset + limite
+  
+  cat(sprintf("offset %d — acumulados: %d de %d\n",
+              offset, nrow(handroanthus_br), dados$count))
+  
+  if(offset >= min(dados$count, 10000)) break
+  Sys.sleep(0.5)
+}
+
+write_xlsx(handroanthus_br, "handroanthus_br.xlsx")
+
+cat("\nTotal Brasil:", nrow(handroanthus_br), "ocorrencias\n")
+
+# Visualizar distribuicao geografica
+plot(handroanthus_br$lon, handroanthus_br$lat,
+     pch=16, cex=0.3, col="darkgreen",
+     main="Ocorrencias de Handroanthus no Brasil (GBIF)",
+     xlab="Longitude", ylab="Latitude")
+```
