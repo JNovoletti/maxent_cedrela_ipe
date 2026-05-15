@@ -70,11 +70,11 @@ set.seed(1350)
 #'
 ## ----importacao_dados---------------------------------------------------------
 # Dados de Cedrela
-cedrela <- readxl::read_excel(here::here("data", "cedrela_br_var_amb.xlsx"), sheet = 1)
+cedrela <- read.csv(here::here("data", "cedrela_br_var_amb.csv"))
 head(cedrela)
 
 # Dados de Handroanthus
-handroanthus <- readxl::read_excel(here::here("data", "handroanthus_var_amb.xlsx"), sheet = 1)
+handroanthus <- read.csv(here::here("data", "handroanthus_var_amb.csv"))
 head(handroanthus)
 
 
@@ -86,10 +86,9 @@ head(handroanthus)
 #'
 ## ----stack--------------------------------------------------------------------
 # Caminho dos rasters
-raster_dir <- "C:/Users/Aluno/Documents/dslab/Rasters"
 
 # Listar arquivos .tif
-raster_files <- list.files(path = raster_dir, pattern = "\\.tif$", full.names = TRUE)
+raster_files <- list.files(here::here("rasters"), pattern = "\\.tif$", full.names = TRUE)
 #raster_files <- list.files(  path = raster_dir,   pattern = "32\\.vapor|33\\.solar\\.tif$",   full.names = TRUE)
 
 # Excluir stacks consolidados e recortes regionais
@@ -179,7 +178,7 @@ par(mfrow = c(1, 1))
 #' pontos de background (a colinearidade pode mudar entre regioes do espaco
 #' ambiental, por isso incluimos ambos).
 #'
-extrair_valores_amb <- function(pontos, climate_stack, n_background = 1000,
+extrair_valores_amb <- function(pontos, climate_stack, n_background = 10000,
                                 ext, especie) {
   
   cat("\n--- Extraindo valores ambientais:", especie, "---\n")
@@ -191,8 +190,8 @@ extrair_valores_amb <- function(pontos, climate_stack, n_background = 1000,
   colnames(backg) <- c("lon", "lat")
   
   # Extrair valores das variaveis ambientais
-  vals_pres <- raster::extract(climate_stack, pontos)
-  vals_back <- raster::extract(climate_stack, backg)
+  vals_pres <- raster::extract(climate_stack, pontos, method="bilinear")
+  vals_back <- raster::extract(climate_stack, backg, method="bilinear")
   
   # Unir presencas + background para o diagnostico
   vals_all <- rbind(vals_pres, vals_back)
@@ -204,12 +203,12 @@ extrair_valores_amb <- function(pontos, climate_stack, n_background = 1000,
 }
 
 vals_cedrela      <- extrair_valores_amb(cedrela_pts,      r_stack_raster,
-                                         n_background = 1000,
+                                         n_background = 10000,
                                          ext = ext_brasil,
                                          especie = "Cedrela")
 
 vals_handroanthus <- extrair_valores_amb(handroanthus_pts, r_stack_raster,
-                                         n_background = 1000,
+                                         n_background = 10000,
                                          ext = ext_brasil,
                                          especie = "Handroanthus")
 
@@ -605,7 +604,7 @@ plot_mapa_adeq(predicao = resultado_handroanthus$predicao,
 classificar_binario <- function(predicao, pontos, especie) {
   
   # Adequabilidade nos pontos de presenca
-  vals_pres <- raster::extract(predicao, pontos)
+  vals_pres <- raster::extract(predicao, pontos, method="bilinear")
   vals_pres <- vals_pres[!is.na(vals_pres)]
   
   limiar <- min(vals_pres)
