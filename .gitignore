@@ -9,11 +9,6 @@
 *.csv
 
 # Pastas de dados pesados e resultados do MaxEnt
-rasters/
-maxent_output/
-outputs/
-output/
+rasters/*
+maxent_output/*
 
-# Arquivos de objetos e modelos salvos do R
-*.rds
-*.RData
