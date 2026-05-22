@@ -12,3 +12,6 @@
 rasters/*
 maxent_output/*
 
+# Linhas obrigatórias com a exclamação (!) para abrir uma exceção para o arquivo
+!rasters/.gitkeep
+!maxent_output/.gitkeep
