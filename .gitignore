@@ -1,6 +1,19 @@
-.Rproj.user
+# Arquivos de configuração e histórico do R
+.Rproj.user/
 .Rhistory
 .RData
 .Ruserdata
+
+# Arquivos de dados e planilhas
 *.xlsx
-rasters
+*.csv
+
+# Pastas de dados pesados e resultados do MaxEnt
+rasters/
+maxent_output/
+outputs/
+output/
+
+# Arquivos de objetos e modelos salvos do R
+*.rds
+*.RData
