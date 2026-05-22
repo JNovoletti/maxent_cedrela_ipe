@@ -4,10 +4,6 @@
 .RData
 .Ruserdata
 
-# Arquivos de dados e planilhas
-*.xlsx
-*.csv
-
 # Pastas de dados pesados e resultados do MaxEnt
 rasters/*
 maxent_output/*
