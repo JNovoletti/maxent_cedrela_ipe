@@ -1,0 +1,11 @@
+"dataset","thinning_km","n_inicial","n_mantidos","n_removidos","pct_mantidos"
+"Handroanthus combinado",1,865,668,197,77.2
+"Handroanthus combinado",5,865,554,311,64
+"Handroanthus combinado",10,865,501,364,57.9
+"Handroanthus combinado",15,865,458,407,52.9
+"Handroanthus combinado",20,865,406,459,46.9
+"Cedrela combinado",1,315,219,96,69.5
+"Cedrela combinado",5,315,183,132,58.1
+"Cedrela combinado",10,315,166,149,52.7
+"Cedrela combinado",15,315,158,157,50.2
+"Cedrela combinado",20,315,153,162,48.6

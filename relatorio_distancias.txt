@@ -1,0 +1,100 @@
+===========================================================
+  RELATÓRIO DE ESTATÍSTICAS DE DISTÂNCIA E THINNING
+  Gerado em: 2026-05-25 17:24:01
+===========================================================
+
+DATASETS ANALISADOS
+-----------------------------------------------------------
+Os dados combinam pontos de ocorrência da planilha de
+isótopos (filtrados pela Amazônia Legal) com pontos de
+ocorrência do Brasil com variáveis ambientais, removendo
+duplicatas por lon/lat. Foram analisados dois gêneros:
+Handroanthus e Cedrela.
+
+MÉTRICAS DE DISTÂNCIA
+-----------------------------------------------------------
+As distâncias foram calculadas par-a-par entre todos os
+pontos de cada dataset, usando a função st_distance() do
+pacote sf com CRS geográfico (EPSG:4326). Isso garante
+cálculo geodésico (distância sobre a superfície da Terra),
+com resultado em metros, convertido para km. Apenas pares
+únicos (triângulo superior da matriz, sem a diagonal)
+foram considerados.
+
+  - Distância mínima: menor distância entre quaisquer dois
+    pontos. Valores muito baixos indicam pontos quase
+    coincidentes, sinal de possível redundância amostral.
+  - Distância média: média aritmética de todas as
+    distâncias par-a-par. Sensível a outliers (pontos
+    muito distantes do restante).
+  - Distância mediana: valor central das distâncias,
+    robusto a outliers. Reflete melhor a distância típica.
+  - Desvio padrão (sd): dispersão das distâncias em torno
+    da média. Valor alto indica grande variabilidade
+    espacial entre as ocorrências.
+  - Distância máxima: maior separação entre dois pontos
+    do dataset, refletindo a extensão geográfica total.
+
+PREVISÃO DE THINNING
+-----------------------------------------------------------
+O thinning espacial é uma técnica usada em modelagem de
+distribuição de espécies (SDM) para reduzir o viés
+amostral causado por concentração de pontos em regiões
+mais amostradas. Consiste em manter apenas pontos
+separados por uma distância mínima d.
+
+O algoritmo aplicado é guloso: percorre os pontos na
+ordem do arquivo e, para cada ponto ainda mantido,
+descarta todos os demais que estiverem a menos de d km
+dele. O número final de pontos é razoavelmente estável,
+mas os pontos exatos que sobram dependem da ordem.
+
+Foram testadas cinco distâncias: 1, 5, 10, 15 e 20 km.
+
+===========================================================
+  RESULTADOS - HANDROANTHUS COMBINADO
+===========================================================
+
+Estatísticas de distância (km):
+  Número de pontos:    865
+  Número de pares:     373680
+  Distância mínima:    0 km
+  Distância média:     1285.04 km
+  Distância mediana:   1282.398 km
+  Desvio padrão (sd):  644.428 km
+  Distância máxima:    3498.344 km
+
+Previsão de thinning:
+  Thinning  1 km: 668 pontos mantidos de 865 (77.2%) | 197 removidos
+  Thinning  5 km: 554 pontos mantidos de 865 (64%) | 311 removidos
+  Thinning 10 km: 501 pontos mantidos de 865 (57.9%) | 364 removidos
+  Thinning 15 km: 458 pontos mantidos de 865 (52.9%) | 407 removidos
+  Thinning 20 km: 406 pontos mantidos de 865 (46.9%) | 459 removidos
+
+===========================================================
+  RESULTADOS - CEDRELA COMBINADO
+===========================================================
+
+Estatísticas de distância (km):
+  Número de pontos:    315
+  Número de pares:     49455
+  Distância mínima:    0 km
+  Distância média:     1173.791 km
+  Distância mediana:   1111.928 km
+  Desvio padrão (sd):  640.944 km
+  Distância máxima:    3267.43 km
+
+Previsão de thinning:
+  Thinning  1 km: 219 pontos mantidos de 315 (69.5%) | 96 removidos
+  Thinning  5 km: 183 pontos mantidos de 315 (58.1%) | 132 removidos
+  Thinning 10 km: 166 pontos mantidos de 315 (52.7%) | 149 removidos
+  Thinning 15 km: 158 pontos mantidos de 315 (50.2%) | 157 removidos
+  Thinning 20 km: 153 pontos mantidos de 315 (48.6%) | 162 removidos
+
+===========================================================
+  ARQUIVOS GERADOS
+===========================================================
+  - estatisticas_distancia.csv  (métricas em formato CSV)
+  - previsao_thinning.csv       (previsão de thinning em CSV)
+  - relatorio_distancias.txt    (este relatório)
+
