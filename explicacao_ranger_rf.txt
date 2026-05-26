@@ -1,0 +1,97 @@
+Pipeline: SDM com Random Forest (ranger) + VSURF
+=================================================
+
+Os dois arquivos (cedrela_ranger_rf.R e handroanthus_ranger_rf.R) são praticamente idênticos —
+um para Cedrela e outro para Handroanthus (ipê). Aqui está o pipeline completo explicado por seção:
+
+
+Etapa 1 — Pacotes e setup
+--------------------------
+Carrega os pacotes necessários (instalando se faltarem) e define set.seed(1350) para
+reprodutibilidade. Cria a pasta de output em output_ranger/cedrela ou output_ranger/handroanthus.
+
+
+Etapa 2 — Shapefile da Amazônia Legal
+---------------------------------------
+Tenta carregar o shapefile local (shapefile/amazonia_legal.shp). Se não existir, baixa via
+geobr::read_amazon() e salva localmente. Garante que o CRS seja WGS84 (EPSG:4326).
+
+
+Etapa 3 — Stack de rasters ambientais
+---------------------------------------
+- Lista todos os .tif da pasta rasters/, excluindo arquivos de stack consolidado e alguns
+  específicos (density, corridors)
+- Empilha tudo com terra::rast()
+- Recorta e mascara para o polígono da Amazônia Legal
+
+
+Etapa 4 — Ocorrências (duas fontes)
+-------------------------------------
+1. GBIF: lê cedrela_br_var_amb.csv (ou handroanthus_var_amb.csv), com fallback para o CSV
+   sem variáveis ambientais
+2. Campo: lê a planilha Excel Planilha_madeiras_14_04_26_compilada.xlsx, filtra pelo Genus correto
+3. Combina as duas fontes, remove NA/duplicatas, e recorta para a Amazônia Legal com sf::st_filter()
+
+
+Etapa 5 — Thinning espacial (5 km)
+------------------------------------
+Usa spThin::thin() com 50 repetições e distância mínima de 5 km entre pontos. Seleciona a
+repetição que retém o maior número de pontos (which.max(sapply(thin_list, nrow))). Isso reduz
+o viés de amostragem espacial.
+
+
+Etapa 6 — Pseudo-ausências (background)
+-----------------------------------------
+Amostra aleatória de 1.000 pontos dentro da Amazônia usando terra::spatSample(). Esses pontos
+representam o "background" — locais onde a espécie não foi registrada (não necessariamente
+ausências verdadeiras).
+
+
+Etapa 7 — Extração de variáveis ambientais
+--------------------------------------------
+Extrai os valores de todos os rasters em cada ponto de presença e de background com interpolação
+bilinear. Concatena tudo em model_data com coluna presence (1 = presença, 0 = background).
+
+
+Etapa 8 — Seleção de variáveis com VSURF
+------------------------------------------
+Roda o VSURF com 500 árvores. O VSURF tem três etapas internas:
+- Thresholding (nfor.thres = 20): elimina variáveis com importância abaixo do ruído
+- Interpretation (nfor.interp = 100): seleciona o subconjunto mínimo para interpretar a resposta
+- Prediction (nfor.pred = 10): refina para predição
+
+O script usa varselect.pred como conjunto final; se vazio, cai back para varselect.interp.
+
+
+Etapa 9 — Random Forest final (ranger)
+----------------------------------------
+Treina com as variáveis selecionadas pelo VSURF:
+- num.trees = 1000, probability = TRUE (saída é probabilidade, não classe)
+- importance = "impurity" (Gini)
+- min.node.size = 10 (evita overfitting)
+
+Imprime e salva o gráfico de importância das variáveis.
+
+
+Etapa 10 — Mapas de predição
+------------------------------
+- Mapa contínuo: aplica o modelo sobre todo o raster da Amazônia via terra::predict(), gerando
+  probabilidade de ocorrência pixel a pixel (0–1)
+- Mapa binário: classifica com limiar de 0.5 -> "Presente" / "Ausente"
+
+Ambos são plotados com ggplot2 com os pontos de ocorrência sobrepostos.
+
+
+Etapa 11 — Exportação
+-----------------------
+Salva em output_ranger/{especie}/:
+- .tif do mapa de probabilidade e do binário
+- .xlsx com variáveis selecionadas, importâncias e ocorrências pós-thinning
+- .rds do modelo RF e do objeto VSURF
+- .RData com o workspace completo
+
+
+Diferença entre os dois arquivos
+----------------------------------
+Apenas a espécie — Cedrela vs Handroanthus — e a cor do gráfico de importância
+(vermelho para Cedrela, azul para Handroanthus). A estrutura e lógica são idênticas.

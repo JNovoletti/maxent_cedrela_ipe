@@ -7,6 +7,8 @@
 # Pastas de dados pesados e resultados do MaxEnt
 rasters/*
 maxent_output/*
+output_ranger/*
+shapefile/*
 
 # Linhas obrigatórias com a exclamação (!) para abrir uma exceção para o arquivo
 !rasters/.gitkeep
