@@ -15,7 +15,7 @@
 
 pkgs <- c(
   "readxl", "writexl", "tidyverse", "terra", "sf",
-  "here", "geobr", "spThin", "ranger", "VSURF", "ggplot2"
+  "here", "geobr", "spThin", "ranger", "VSURF", "ggplot2", "pROC"
 )
 invisible(lapply(pkgs, function(p) {
   if (!require(p, character.only = TRUE))
@@ -62,7 +62,7 @@ raster_files <- list.files(
   full.names = TRUE
 )
 
-excluir <- "Brazil_env_stack|Amazon_stack|Caatinga_elev_corridor|elev_corridor_minus1|48\\.density"
+excluir <- "Brazil_env_stack|Amazon_stack|Caatinga_elev_corridor|elev_corridor_minus1|48\\.density|17\\.fossilfuels_dep"
 raster_files <- raster_files[!grepl(excluir, basename(raster_files))]
 
 r_brasil <- terra::rast(raster_files)
@@ -250,13 +250,9 @@ vsurf_res <- VSURF::VSURF(
   verbose    = FALSE
 )
 
-vars_pred <- names(preditoras)[vsurf_res$varselect.pred]
-if (length(vars_pred) == 0) {
-  vars_pred <- names(preditoras)[vsurf_res$varselect.interp]
-  cat("Nenhuma variável em varselect.pred; usando varselect.interp.\n")
-}
+vars_pred <- names(preditoras)[vsurf_res$varselect.interp]
 
-cat("Variáveis selecionadas (predição):\n"); print(vars_pred)
+cat("Variáveis selecionadas (varselect.interp):\n"); print(vars_pred)
 cat("Total selecionado:", length(vars_pred), "\n")
 
 preditoras_sel <- preditoras[, vars_pred, drop = FALSE]
@@ -309,7 +305,75 @@ ggsave(
 
 
 # =========================================================================
-# 10. MAPA DE PROBABILIDADE DE OCORRÊNCIA
+# 10. MÉTRICAS DE AVALIAÇÃO (AUC, maxSSS, TSS)
+# =========================================================================
+
+# OOB predictions (ranger probability = TRUE armazena em $predictions)
+oob_probs  <- rf_final$predictions[, "1"]
+oob_labels <- as.integer(as.character(model_data_sel$presence))
+
+# AUC via curva ROC
+roc_obj <- pROC::roc(oob_labels, oob_probs, quiet = TRUE)
+auc_val <- as.numeric(pROC::auc(roc_obj))
+
+# maxSSS: limiar que maximiza Sensibilidade + Especificidade
+coords_roc <- pROC::coords(
+  roc_obj, x = "all", input = "threshold",
+  ret       = c("threshold", "sensitivity", "specificity"),
+  transpose = FALSE
+)
+coords_roc$tss <- coords_roc$sensitivity + coords_roc$specificity - 1
+idx_max        <- which.max(coords_roc$tss)
+
+limiar_maxSSS  <- coords_roc$threshold[idx_max]
+sensibilidade  <- coords_roc$sensitivity[idx_max]
+especificidade <- coords_roc$specificity[idx_max]
+TSS            <- coords_roc$tss[idx_max]
+omissao        <- 1 - sensibilidade
+
+# Matriz de confusão no limiar maxSSS
+pred_bin <- as.integer(oob_probs >= limiar_maxSSS)
+TP <- sum(pred_bin == 1L & oob_labels == 1L)
+FN <- sum(pred_bin == 0L & oob_labels == 1L)
+FP <- sum(pred_bin == 1L & oob_labels == 0L)
+TN <- sum(pred_bin == 0L & oob_labels == 0L)
+
+acuracia <- (TP + TN) / (TP + TN + FP + FN)
+precisao <- TP / (TP + FP)
+f1       <- 2 * TP / (2 * TP + FP + FN)
+n_tot    <- TP + TN + FP + FN
+pe       <- ((TP + FP) / n_tot) * ((TP + FN) / n_tot) +
+            ((FN + TN) / n_tot) * ((FP + TN) / n_tot)
+kappa    <- (acuracia - pe) / (1 - pe)
+
+metricas_rf <- data.frame(
+  metrica = c(
+    "AUC_OOB", "OOB_erro_predicao",
+    "Limiar_maxSSS", "TSS", "Sensibilidade", "Especificidade",
+    "Omissao", "Acuracia", "Precisao", "F1_score", "Kappa",
+    "TP", "FN", "FP", "TN"
+  ),
+  valor = c(
+    round(auc_val, 4), round(rf_final$prediction.error, 4),
+    round(limiar_maxSSS, 4), round(TSS, 4), round(sensibilidade, 4), round(especificidade, 4),
+    round(omissao, 4), round(acuracia, 4), round(precisao, 4), round(f1, 4), round(kappa, 4),
+    TP, FN, FP, TN
+  )
+)
+
+cat("\n--- Métricas de avaliação (OOB) ---\n")
+print(metricas_rf)
+
+cat("\nAUC (OOB):    ", round(auc_val, 4), "\n")
+cat("Limiar maxSSS:", round(limiar_maxSSS, 4), "\n")
+cat("TSS:          ", round(TSS, 4), "\n")
+cat("Sensibilidade:", round(sensibilidade, 4), "\n")
+cat("Especificidade:", round(especificidade, 4), "\n")
+cat("Omissão:      ", round(omissao, 4), "\n")
+
+
+# =========================================================================
+# 11. MAPA DE PROBABILIDADE DE OCORRÊNCIA
 # =========================================================================
 
 r_sel <- r_amazonia[[vars_pred]]
@@ -367,11 +431,11 @@ ggsave(
   plot = mapa_gg, width = 8, height = 6, dpi = 300
 )
 
-# --- Mapa binário (limiar = 0.5) -----------------------------------------
+# --- Mapa binário (limiar maxSSS) ----------------------------------------
 
 bin_map <- terra::classify(
   prob_map,
-  matrix(c(-Inf, 0.5, 0, 0.5, Inf, 1), ncol = 3, byrow = TRUE)
+  matrix(c(-Inf, limiar_maxSSS, 0, limiar_maxSSS, Inf, 1), ncol = 3, byrow = TRUE)
 )
 names(bin_map) <- "presenca_binario"
 
@@ -394,7 +458,7 @@ mapa_bin_gg <- ggplot() +
     drop   = FALSE, na.value = "transparent"
   ) +
   labs(
-    title = expression(italic("Cedrela") ~ "– presença binária (limiar 0.5)"),
+    title = paste0("Cedrela – presença binária (maxSSS = ", round(limiar_maxSSS, 3), ")"),
     x = "Longitude", y = "Latitude"
   ) +
   theme_minimal(base_size = 12) +
@@ -413,7 +477,7 @@ ggsave(
 
 
 # =========================================================================
-# 11. EXPORTAÇÃO
+# 12. EXPORTAÇÃO
 # =========================================================================
 
 terra::writeRaster(
@@ -432,6 +496,7 @@ writexl::write_xlsx(
   list(
     variaveis_selecionadas = data.frame(variavel = vars_pred),
     importancia_variaveis  = imp_df,
+    metricas_avaliacao     = metricas_rf,
     ocorrencias_thinning   = occ_final
   ),
   path = file.path(out_dir, "cedrela_rf_resultados.xlsx")
